@@ -1,0 +1,6 @@
+[submodule "lib/cairo-vm"]
+	path = lib/cairo-vm
+	url = git@github.com:thanhtoantnt/cairo-vm.git
+[submodule "lib/starknet_in_rust"]
+	path = lib/starknet_in_rust
+	url = git@github.com:thanhtoantnt/starknet_in_rust.git
