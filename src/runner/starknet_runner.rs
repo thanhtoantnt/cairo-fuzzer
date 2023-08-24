@@ -1,6 +1,6 @@
 use cairo_rs::felt::Felt252;
 use num_traits::Zero;
-use starknet_contract_class::EntryPointType;
+use starknet_rs::services::api::contract_classes::deprecated_contract_class::EntryPointType;
 use starknet_rs::{
     definitions::{block_context::BlockContext, constants::TRANSACTION_VERSION},
     execution::{
@@ -68,7 +68,11 @@ impl Runner for RunnerStarknet {
         //*    Create state with previous data
         //* ---------------------------------------
 
-        let mut state = CachedState::new(state_reader, Some(contract_class_cache), None);
+        let mut state = CachedState::new(
+            std::sync::Arc::new(state_reader),
+            Some(contract_class_cache),
+            None,
+        );
 
         //* ------------------------------------
         //*    Create execution entry point
@@ -111,10 +115,11 @@ impl Runner for RunnerStarknet {
             &mut resources_manager,
             &mut tx_execution_context,
             false,
+            block_context.invoke_tx_max_n_steps(),
             true,
         ) {
             Ok(exec_info) => {
-                return Ok(Some(exec_info.trace));
+                return Ok(Some(exec_info.call_info.unwrap().trace));
             }
             Err(e) => return Err(e.to_string()),
         };

@@ -1,6 +1,7 @@
 use std::{
     fs::{self, File},
     process,
+    str::FromStr,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -161,7 +162,7 @@ impl Fuzzer {
             None
         };
         let contract_class = if function._starknet {
-            Some(ContractClass::try_from(contents.as_str()).expect("could not get contractclass"))
+            Some(ContractClass::from_str(contents.as_str()).expect("could not get contractclass"))
         } else {
             None
         };
