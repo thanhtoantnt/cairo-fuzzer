@@ -12,25 +12,17 @@ log = '*'
 thiserror = '1.0.32'
 num-traits = '0.2.15'
 
-[dependencies.cairo-rs]
-git = 'https://github.com/FuzzingLabs/cairo-rs'
-rev = 'ebf64a45b0881cde11c114236a666a8edd9af10a'
-package = 'cairo-vm'
-
 [dependencies.felt]
-git = 'https://github.com/FuzzingLabs/cairo-rs'
-rev = 'ebf64a45b0881cde11c114236a666a8edd9af10a'
+path = "./lib/cairo-vm/felt/" 
 package = 'cairo-felt'
 
-[dependencies.starknet-rs]
-git = 'https://github.com/FuzzingLabs/starknet_in_rust/'
-rev = '1c6cf1da6d6e19221954ab24a3b140adb5de396f'
-package = 'starknet_in_rust'
+[dependencies.cairo-rs]
+path = "./lib/cairo-vm/vm/" 
+package = 'cairo-vm'
 
-[dependencies.starknet-contract-class]
-git = 'https://github.com/FuzzingLabs/starknet_in_rust'
-rev = '1c6cf1da6d6e19221954ab24a3b140adb5de396f'
-package = 'starknet-contract-class'
+[dependencies.starknet-rs]
+path = "./lib/starknet_in_rust"
+package = 'starknet_in_rust'
 
 [dependencies.num-bigint]
 version = '0.4'
