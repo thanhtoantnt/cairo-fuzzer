@@ -1,23 +1,14 @@
+use super::stats::*;
+use super::{corpus_crash::CrashFile, corpus_input::InputFile};
+use crate::custom_rand::rng::Rng;
+use crate::json::json_parser::Function;
 use crate::mutator::mutator::{EmptyDatabase, Mutator};
+use crate::runner::cairo_runner;
 use crate::runner::runner::Runner;
 use cairo_rs::types::program::Program;
 use felt::Felt252;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
-
-use super::{corpus_crash::CrashFile, corpus_input::InputFile};
-//use super::dict::Dict;
-use super::stats::*;
-
-use crate::custom_rand::rng::Rng;
-use crate::json::json_parser::Function;
-use crate::runner::cairo_runner;
-use thiserror::Error;
-
-#[derive(Debug, PartialEq, Error)]
-pub enum CairoworkerError {
-    // TODO implem
-}
 
 pub struct CairoWorker {
     stats: Arc<Mutex<Statistics>>,
@@ -28,7 +19,6 @@ pub struct CairoWorker {
     input_file: Arc<Mutex<InputFile>>,
     crash_file: Arc<Mutex<CrashFile>>,
     iter: i64,
-    //dict: Dict,
 }
 
 impl CairoWorker {
@@ -41,18 +31,16 @@ impl CairoWorker {
         input_file: Arc<Mutex<InputFile>>,
         crash_file: Arc<Mutex<CrashFile>>,
         iter: i64,
-        //dict: Dict,
     ) -> Self {
         CairoWorker {
             stats,
             worker_id,
             program,
             function,
-            seed: seed,
+            seed,
             input_file,
             crash_file,
             iter,
-            //dict,
         }
     }
 

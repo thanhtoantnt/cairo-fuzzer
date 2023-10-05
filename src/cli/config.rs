@@ -14,12 +14,8 @@ pub struct Config {
     pub crash_folder: String,
     pub dict: String,
     pub cores: i32,
-    pub logs: bool,
     pub seed: Option<u64>,
     pub run_time: Option<u64>,
-    pub replay: bool,
-    pub minimizer: bool,
-    pub proptesting: bool,
     pub iter: i64,
 }
 

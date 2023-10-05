@@ -37,12 +37,8 @@ fn main() {
                 crash_folder: opt.crashfolder,
                 dict: opt.dict,
                 cores: opt.cores,
-                logs: opt.logs,
                 seed: opt.seed,
                 run_time: opt.run_time,
-                replay: opt.replay,
-                minimizer: opt.minimizer,
-                proptesting: opt.proptesting,
                 iter: opt.iter,
             }
         }

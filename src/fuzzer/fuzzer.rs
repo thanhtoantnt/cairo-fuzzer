@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, File},
+    fs::{self},
     process,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -15,47 +15,23 @@ use super::{corpus_crash::CrashFile, corpus_input::InputFile, stats::Statistics}
 use cairo_rs::types::program::Program;
 use felt::Felt252;
 use rand::Rng;
-use std::io::Write;
 
 #[derive(Clone)]
 pub struct Fuzzer {
-    /// Shared fuzzing statistics between threads
     pub stats: Arc<Mutex<Statistics>>,
-    /// Number of cores/threads
     pub cores: i32,
-    /// Contract JSON path
     pub contract_file: String,
-    /// Contract JSON content
     pub contract_content: String,
-    /// Program for cairo-rs
     pub program: Option<Program>,
-    /// Contract function to fuzz
     pub function: Function,
-    /// Store local/on-disk logs
-    pub logs: bool,
-    /// Replay mode
-    pub replay: bool,
-    /// Corpus minimization
-    pub minimizer: bool,
-    /// Seed number
     pub seed: u64,
-    /// Workspace to use
     pub workspace: String,
-    /// Inputs file path
     pub input_file: Arc<Mutex<InputFile>>,
-    /// Crashes file path
     pub crash_file: Arc<Mutex<CrashFile>>,
-    /// Number of second the fuzzing session will last
     pub run_time: Option<u64>,
-    /// Starting time of the fuzzer
     pub start_time: Instant,
-    /// Running workers
     pub running_workers: u64,
-    /// Number of iterations to run
     pub iter: i64,
-    /// Usage of property testing
-    pub proptesting: bool,
-    /// Dictionnary struct
     pub dict: Dict,
 }
 
@@ -148,10 +124,7 @@ impl Fuzzer {
         Fuzzer {
             stats,
             cores: config.cores,
-            logs: config.logs,
             run_time: config.run_time,
-            replay: config.replay,
-            minimizer: config.minimizer,
             contract_file: config.contract_file.clone(),
             contract_content: contents,
             program,
@@ -164,7 +137,6 @@ impl Fuzzer {
             workspace: config.workspace.clone(),
             running_workers: 0,
             iter: config.iter,
-            proptesting: config.proptesting,
         }
     }
 
@@ -201,12 +173,6 @@ impl Fuzzer {
 
     /// Function to print stats of the running fuzzer
     fn monitor(&self) {
-        let mut log = None;
-        if self.logs {
-            log = Some(File::create("fuzz_stats.txt").expect("Failed to lock stats mutex"));
-        }
-
-        // Monitoring loop
         loop {
             // wait 1 second
             std::thread::sleep(Duration::from_millis(1000));
@@ -231,29 +197,6 @@ impl Fuzzer {
                 stats.crashes,
                 stats.crash_db.len()
             );
-            // Writing inside logging file
-            if let Some(ref mut file) = log {
-                write!(
-                    file,
-                    "{:12.0} {:7} {:8} {:5} {:6} {:6}\n",
-                    uptime,
-                    fuzz_case,
-                    stats.coverage_db.len(),
-                    stats.input_len,
-                    stats.crashes,
-                    stats.crash_db.len()
-                )
-                .expect("Failed to write logs in log file");
-                file.flush().expect("Failed to flush the file");
-            }
-
-            // Only for replay: all thread are finished
-            if (self.replay && stats.threads_finished == self.running_workers)
-                || (self.iter < fuzz_case as i64 && self.iter != -1)
-            {
-                break;
-            }
-
             if let Some(run_time) = self.run_time {
                 if uptime > run_time as f64 {
                     process::exit(0);
