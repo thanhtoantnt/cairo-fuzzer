@@ -97,14 +97,7 @@ impl Fuzzer {
             },
         };
         // Load inputs from the input file if provided
-        let mut inputs: InputFile =
-            match config.input_file.is_empty() && config.input_folder.is_empty() {
-                true => InputFile::new_from_function(&function, &config.workspace),
-                false => match config.input_folder.is_empty() {
-                    true => InputFile::load_from_file(&config.input_file, &config.workspace),
-                    false => InputFile::load_from_folder(&config.input_folder, &config.workspace),
-                },
-            };
+        let mut inputs = InputFile::load_from_folder(&config.input_folder, &config.workspace);
         println!("\t\t\t\t\t\t\tInputs loaded {}", inputs.inputs.len());
 
         let dict = match &config.dict.is_empty() {
