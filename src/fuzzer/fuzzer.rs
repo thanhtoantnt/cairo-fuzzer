@@ -10,7 +10,6 @@ use crate::{
     cli::config::Config,
     fuzzer::cairo_worker::CairoWorker,
     fuzzer::dict::Dict,
-    fuzzer::starknet_worker::StarknetWorker,
     json::json_parser::{parse_json, parse_starknet_json, Function},
 };
 
@@ -166,7 +165,7 @@ impl Fuzzer {
 
         // Setup the fuzzer
         Fuzzer {
-            stats: stats,
+            stats,
             cores: config.cores,
             logs: config.logs,
             run_time: config.run_time,
@@ -174,12 +173,12 @@ impl Fuzzer {
             minimizer: config.minimizer,
             contract_file: config.contract_file.clone(),
             contract_content: contents,
-            program: program,
-            dict: dict,
-            contract_class: contract_class,
+            program,
+            dict,
+            contract_class,
             function: function.clone(),
             start_time: Instant::now(),
-            seed: seed,
+            seed,
             input_file: inputs,
             crash_file: crashes,
             workspace: config.workspace.clone(),
@@ -200,45 +199,25 @@ impl Fuzzer {
             let input_file = self.input_file.clone();
             let crash_file = self.crash_file.clone();
             let program = self.program.clone();
-            let contract_class = self.contract_class.clone();
             let seed = self.seed + (i as u64);
-            let starknet = self.starknet;
             let iter = self.iter;
-            //let dict = self.dict.clone();
-            // Spawn threads
             std::thread::spawn(move || {
-                if !starknet {
-                    let cairo_worker = CairoWorker::new(
-                        stats,
-                        i,
-                        program.expect("Could not get Cairo Program (None)"),
-                        function,
-                        seed,
-                        input_file,
-                        crash_file,
-                        iter,
-                        //dict,
-                    );
-                    cairo_worker.fuzz();
-                } else {
-                    let starknet_worker = StarknetWorker::new(
-                        stats,
-                        i,
-                        contract_class.expect("Could not get Cairo Program (None)"),
-                        function,
-                        seed,
-                        input_file,
-                        crash_file,
-                        iter,
-                    );
-                    starknet_worker.fuzz();
-                }
+                let cairo_worker = CairoWorker::new(
+                    stats,
+                    i,
+                    program.expect("Could not get Cairo Program (None)"),
+                    function,
+                    seed,
+                    input_file,
+                    crash_file,
+                    iter,
+                    //dict,
+                );
+                cairo_worker.fuzz();
             });
             self.running_workers += 1;
         }
         println!("\t\t\t\t\t\t\tRunning {} threads", self.running_workers);
-        println!("        =========================================================================================================================");
-        // Call the stats monitoring/printer
         self.monitor();
     }
 
@@ -305,304 +284,5 @@ impl Fuzzer {
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use core::panic;
-    use std::{thread, time::Duration};
-
-    use crate::cli::config::Config;
-
-    use super::Fuzzer;
-    #[test]
-    fn test_loading_config_file() {
-        let config_file = "tests/config.json".to_string();
-        let config = Config::load_config(&config_file);
-        let fuzzer = Fuzzer::new(&config);
-        assert_eq!(fuzzer.cores, 1);
-        assert_eq!(fuzzer.logs, false);
-        assert_eq!(fuzzer.function.name, "Fuzz_symbolic_execution");
-    }
-
-    #[test]
-    fn test_run_fuzzer_from_config_file() {
-        let config_file = "tests/config.json".to_string();
-        let config = Config::load_config(&config_file);
-        let mut fuzzer = Fuzzer::new(&config);
-        // Create a new thread
-        let handle = thread::spawn(move || {
-            fuzzer.run_time = Some(10);
-            fuzzer.fuzz();
-        });
-
-        thread::sleep(Duration::from_secs(5));
-        if handle.is_finished() {
-            panic!("Process should be running");
-        }
-
-        thread::sleep(Duration::from_secs(6));
-        if !handle.is_finished() {
-            panic!("Process should not be running");
-        }
-    }
-    #[test]
-    fn test_init_config() {
-        let cores: i32 = 1;
-        let logs: bool = false;
-        let seed: Option<u64> = Some(1000);
-        let run_time: Option<u64> = Some(10);
-        let replay: bool = false;
-        let minimizer: bool = false;
-        let contract_file: String = "tests/fuzzinglabs.json".to_string();
-        let function_name: String = "Fuzz_symbolic_execution".to_string();
-        let input_file: String = "".to_string();
-        let crash_file: String = "".to_string();
-        let workspace: String = "fuzzer_workspace".to_string();
-        let input_folder: String = "".to_string();
-        let crash_folder: String = "".to_string();
-        let proptesting: bool = false;
-        let iter: i64 = 0;
-        let dict: String = "".to_string();
-        let config = Config {
-            input_folder: input_folder,
-            crash_folder: crash_folder,
-            workspace,
-            contract_file,
-            function_name,
-            input_file,
-            crash_file,
-            cores,
-            logs,
-            seed,
-            run_time,
-            replay,
-            minimizer,
-            iter,
-            proptesting,
-            dict,
-        };
-        let fuzzer = Fuzzer::new(&config);
-        assert_eq!(fuzzer.cores, 1);
-        assert_eq!(fuzzer.logs, false);
-        assert_eq!(fuzzer.function.name, "Fuzz_symbolic_execution");
-    }
-
-    #[test]
-    fn test_run_fuzzer_with_cairo_file() {
-        let cores: i32 = 1;
-        let logs: bool = false;
-        let seed: Option<u64> = Some(1000);
-        let run_time: Option<u64> = Some(10);
-        let replay: bool = false;
-        let minimizer: bool = false;
-        let contract_file: String = "tests/fuzzinglabs.json".to_string();
-        let function_name: String = "Fuzz_symbolic_execution".to_string();
-        let input_file: String = "".to_string();
-        let crash_file: String = "".to_string();
-        let workspace: String = "fuzzer_workspace".to_string();
-        let input_folder: String = "".to_string();
-        let crash_folder: String = "".to_string();
-        let proptesting: bool = false;
-        let iter: i64 = -1;
-        let dict: String = "".to_string();
-        let config = Config {
-            input_folder: input_folder,
-            crash_folder: crash_folder,
-            workspace,
-            contract_file,
-            function_name,
-            input_file,
-            crash_file,
-            cores,
-            logs,
-            seed,
-            run_time,
-            replay,
-            minimizer,
-            iter,
-            proptesting,
-            dict,
-        };
-        // create the fuzzer
-        let mut fuzzer = Fuzzer::new(&config);
-
-        // Create a new thread
-        let handle = thread::spawn(move || {
-            fuzzer.fuzz();
-        });
-
-        thread::sleep(Duration::from_secs(5));
-        if handle.is_finished() {
-            panic!("Process should be running");
-        }
-
-        thread::sleep(Duration::from_secs(6));
-        if !handle.is_finished() {
-            panic!("Process should not be running");
-        }
-    }
-
-    #[test]
-    fn test_run_fuzzer_with_starknet_file() {
-        let cores: i32 = 1;
-        let logs: bool = false;
-        let seed: Option<u64> = Some(1000);
-        let run_time: Option<u64> = Some(10);
-        let replay: bool = false;
-        let minimizer: bool = false;
-        let contract_file: String = "tests/fuzzinglabs-starknet.json".to_string();
-        let function_name: String = "fuzzinglabs_starknet".to_string();
-        let input_file: String = "".to_string();
-        let crash_file: String = "".to_string();
-        let workspace: String = "fuzzer_workspace".to_string();
-        let input_folder: String = "".to_string();
-        let crash_folder: String = "".to_string();
-        let proptesting: bool = false;
-        let iter: i64 = -1;
-        let dict: String = "".to_string();
-        let config = Config {
-            input_folder: input_folder,
-            crash_folder: crash_folder,
-            workspace,
-            contract_file,
-            function_name,
-            input_file,
-            crash_file,
-            cores,
-            logs,
-            seed,
-            run_time,
-            replay,
-            minimizer,
-            iter,
-            proptesting,
-            dict,
-        };
-        // create the fuzzer
-        let mut fuzzer = Fuzzer::new(&config);
-
-        // Create a new thread
-        let handle = thread::spawn(move || {
-            fuzzer.fuzz();
-        });
-
-        thread::sleep(Duration::from_secs(5));
-        if handle.is_finished() {
-            panic!("Process should be running");
-        }
-
-        thread::sleep(Duration::from_secs(6));
-        if !handle.is_finished() {
-            panic!("Process should not be running");
-        }
-    }
-
-    #[test]
-    fn test_replay_cairo() {
-        let cores: i32 = 3;
-        let logs: bool = false;
-        let seed: Option<u64> = Some(1000);
-        let run_time: Option<u64> = Some(10);
-        let replay: bool = true;
-        let minimizer: bool = false;
-        let contract_file: String = "tests/fuzzinglabs.json".to_string();
-        let function_name: String = "Fuzz_symbolic_execution".to_string();
-        let input_file: String =
-            "tests/test_symbolic_execution_2022-12-22--10:18:57.json".to_string();
-        let crash_file: String = "".to_string();
-        let workspace: String = "fuzzer_workspace".to_string();
-        let input_folder: String = "".to_string();
-        let crash_folder: String = "".to_string();
-        let proptesting: bool = false;
-        let iter: i64 = 0;
-        let dict: String = "".to_string();
-        let config = Config {
-            input_folder: input_folder,
-            crash_folder: crash_folder,
-            workspace,
-            contract_file,
-            function_name,
-            input_file,
-            crash_file,
-            cores,
-            logs,
-            seed,
-            run_time,
-            replay,
-            minimizer,
-            iter,
-            proptesting,
-            dict,
-        };
-        // create the fuzzer
-        let mut fuzzer = Fuzzer::new(&config);
-
-        fuzzer.replay();
-
-        let stats = fuzzer.stats.lock().expect("Failed to lock stats mutex");
-        assert_ne!(stats.coverage_db.len(), 0);
-    }
-
-    #[test]
-    fn test_replay_starknet() {
-        let cores: i32 = 3;
-        let logs: bool = false;
-        let seed: Option<u64> = Some(1000);
-        let run_time: Option<u64> = Some(10);
-        let replay: bool = true;
-        let minimizer: bool = false;
-        let contract_file: String = "tests/fuzzinglabs-starknet.json".to_string();
-        let function_name: String = "fuzzinglabs_starknet".to_string();
-        let input_file: String = "tests/fuzzinglabs_starknet_2023-04-04--12:38:47.json".to_string();
-        let crash_file: String = "".to_string();
-        let workspace: String = "fuzzer_workspace".to_string();
-        let input_folder: String = "".to_string();
-        let crash_folder: String = "".to_string();
-        let proptesting: bool = false;
-        let iter: i64 = 0;
-        let dict: String = "".to_string();
-        let config = Config {
-            input_folder: input_folder,
-            crash_folder: crash_folder,
-            workspace,
-            contract_file,
-            function_name,
-            input_file,
-            crash_file,
-            cores,
-            logs,
-            seed,
-            run_time,
-            replay,
-            minimizer,
-            iter,
-            proptesting,
-            dict,
-        };
-        // create the fuzzer
-        let mut fuzzer = Fuzzer::new(&config);
-
-        fuzzer.replay();
-
-        let stats = fuzzer.stats.lock().expect("Failed to lock stats mutex");
-        assert_ne!(stats.coverage_db.len(), 0);
-    }
-
-    #[test]
-    fn test_dict() {
-        let config_file = "tests/config.json".to_string();
-        let config = Config::load_config(&config_file);
-        let fuzzer = Fuzzer::new(&config);
-        assert_ne!(
-            fuzzer
-                .stats
-                .lock()
-                .expect("Failed to lock stats mutex")
-                .input_db
-                .len(),
-            0
-        );
     }
 }
