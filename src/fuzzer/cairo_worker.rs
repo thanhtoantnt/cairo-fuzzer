@@ -1,5 +1,5 @@
+use super::corpus_input::InputFile;
 use super::stats::*;
-use super::{corpus_crash::CrashFile, corpus_input::InputFile};
 use crate::custom_rand::rng::Rng;
 use crate::json::json_parser::Function;
 use crate::mutator::mutator::{EmptyDatabase, Mutator};
@@ -18,7 +18,7 @@ pub struct CairoWorker {
     function: Function,
     seed: u64,
     input_file: Arc<Mutex<InputFile>>,
-    crash_file: Arc<Mutex<CrashFile>>,
+    // crash_file: Arc<Mutex<CrashFile>>,
     iter: i64,
 }
 
@@ -30,7 +30,7 @@ impl CairoWorker {
         function: Function,
         seed: u64,
         input_file: Arc<Mutex<InputFile>>,
-        crash_file: Arc<Mutex<CrashFile>>,
+        // crash_file: Arc<Mutex<CrashFile>>,
         iter: i64,
     ) -> Self {
         CairoWorker {
@@ -40,7 +40,7 @@ impl CairoWorker {
             function,
             seed,
             input_file,
-            crash_file,
+            // crash_file,
             iter,
         }
     }
@@ -172,13 +172,6 @@ impl CairoWorker {
 
                         // Add the crash input to the shared crash database
                         if stats.crash_db.insert(fuzz_input.clone()) {
-                            // add input to the crash corpus
-                            // New crashing input, we dump the crash on the disk
-                            let mut crash_file_lock =
-                                self.crash_file.lock().expect("Failed to get mutex");
-                            crash_file_lock.crashes.push(fuzz_input.to_vec());
-                            crash_file_lock.dump_json();
-
                             println!(
                                 "WORKER {} -- INPUT => {:?} -- ERROR \"{:?}\"",
                                 self.worker_id, &mutator.input, e

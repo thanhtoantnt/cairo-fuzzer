@@ -2,19 +2,14 @@ use std::{
     fs::{self},
     process,
     sync::{Arc, Mutex},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use crate::json::json_parser::parse_json;
-use crate::{
-    cli::config::Config, fuzzer::cairo_worker::CairoWorker, fuzzer::dict::Dict,
-    json::json_parser::Function,
-};
+use crate::{cli::config::Config, fuzzer::cairo_worker::CairoWorker, json::json_parser::Function};
 
-use super::{corpus_crash::CrashFile, corpus_input::InputFile, stats::Statistics};
+use super::{corpus_input::InputFile, stats::Statistics};
 use cairo_rs::types::program::Program;
-use felt::Felt252;
-use rand::Rng;
 
 #[derive(Clone)]
 pub struct Fuzzer {
@@ -27,11 +22,9 @@ pub struct Fuzzer {
     pub seed: u64,
     pub workspace: String,
     pub input_file: Arc<Mutex<InputFile>>,
-    pub crash_file: Arc<Mutex<CrashFile>>,
-    pub start_time: Instant,
+    // pub crash_file: Arc<Mutex<CrashFile>>,
     pub running_workers: u64,
     pub iter: i64,
-    pub dict: Dict,
 }
 
 impl Fuzzer {
@@ -61,24 +54,8 @@ impl Fuzzer {
         };
 
         // Load inputs from the input file if provided
-        let mut inputs = InputFile::load_from_folder(&config.input_folder, &config.workspace);
+        let inputs = InputFile::load_from_folder(&config.input_folder, &config.workspace);
         println!("\t\t\t\t\t\t\tInputs loaded {}", inputs.inputs.len());
-
-        let dict = match &config.dict.is_empty() {
-            true => Dict { inputs: Vec::new() },
-            false => Dict::read_dict(&config.dict),
-        };
-
-        let nbr_args = function.num_args;
-        for val in &dict.inputs {
-            let mut value_vec: Vec<Felt252> = Vec::new();
-            value_vec.push(val.clone());
-            for _ in 0..nbr_args - 1 {
-                value_vec
-                    .push(dict.inputs[rand::thread_rng().gen_range(0..dict.inputs.len())].clone());
-            }
-            inputs.inputs.push(value_vec);
-        }
 
         // Load existing inputs in shared database
         if inputs.inputs.len() > 0 {
@@ -91,24 +68,22 @@ impl Fuzzer {
             }
         }
 
-        // Load crashes from the crash file if provided
-        let crashes: CrashFile =
-            match config.crash_file.is_empty() && config.crash_folder.is_empty() {
-                true => CrashFile::new_from_function(&function, &config.workspace),
-                false => match config.input_folder.is_empty() {
-                    true => CrashFile::load_from_file(&config.input_file, &config.workspace),
-                    false => CrashFile::load_from_folder(&config.input_folder, &config.workspace),
-                },
-            };
+        // let crashes: CrashFile =
+        //     match config.crash_file.is_empty() && config.crash_folder.is_empty() {
+        //         true => CrashFile::new_from_function(&function, &config.workspace),
+        //         false => match config.input_folder.is_empty() {
+        //             true => CrashFile::load_from_file(&config.input_file, &config.workspace),
+        //             false => CrashFile::load_from_folder(&config.input_folder, &config.workspace),
+        //         },
+        //     };
 
-        // Load existing crashes in shared database
-        if crashes.crashes.len() > 0 {
-            let mut stats_db = stats.lock().expect("Failed to lock stats mutex");
-            for input in &crashes.crashes {
-                stats_db.crash_db.insert(Arc::new(input.clone()));
-                stats_db.crashes += 1;
-            }
-        }
+        // if crashes.crashes.len() > 0 {
+        //     let mut stats_db = stats.lock().expect("Failed to lock stats mutex");
+        //     for input in &crashes.crashes {
+        //         stats_db.crash_db.insert(Arc::new(input.clone()));
+        //         stats_db.crashes += 1;
+        //     }
+        // }
 
         let program = Some(
             Program::from_bytes(&contents.as_bytes(), Some(&function.name))
@@ -117,7 +92,7 @@ impl Fuzzer {
 
         // Setup the mutex for the inputs corpus and crash corpus
         let inputs = Arc::new(Mutex::new(inputs));
-        let crashes = Arc::new(Mutex::new(crashes));
+        // let crashes = Arc::new(Mutex::new(crashes));
 
         // Setup the fuzzer
         Fuzzer {
@@ -126,12 +101,10 @@ impl Fuzzer {
             contract_file: config.contract_file.clone(),
             contract_content: contents,
             program,
-            dict,
             function: function.clone(),
-            start_time: Instant::now(),
             seed,
             input_file: inputs,
-            crash_file: crashes,
+            // crash_file: crashes,
             workspace: config.workspace.clone(),
             running_workers: 0,
             iter: config.iter,
@@ -144,7 +117,7 @@ impl Fuzzer {
             let stats = self.stats.clone();
             let function = self.function.clone();
             let input_file = self.input_file.clone();
-            let crash_file = self.crash_file.clone();
+            // let crash_file = self.crash_file.clone();
             let program = self.program.clone();
             let seed = self.seed + (i as u64);
             let iter = self.iter;
@@ -156,7 +129,7 @@ impl Fuzzer {
                     function,
                     seed,
                     input_file,
-                    crash_file,
+                    // crash_file,
                     iter,
                 );
                 cairo_worker.fuzz();
@@ -171,15 +144,12 @@ impl Fuzzer {
     fn monitor(&self) {
         loop {
             std::thread::sleep(Duration::from_millis(1000));
-            let uptime = (Instant::now() - self.start_time).as_secs_f64();
             let stats = self.stats.lock().expect("Failed to lock stats mutex");
             let fuzz_case = stats.fuzz_cases;
             print!(
-                "{:12.2} uptime | {:9} fuzz cases | {:12.2} fcps | \
-                            {:6} coverage | {:6} inputs | {:6} crashes [{:6} unique]\n",
-                uptime,
+                "{:9} fuzz cases | {:12.2} fcps | \
+                            {:6} inputs | {:6} crashes [{:6} unique]\n",
                 fuzz_case,
-                fuzz_case as f64 / uptime,
                 stats.coverage_db.len(),
                 stats.input_len,
                 stats.crashes,
