@@ -89,38 +89,6 @@ pub struct Opt {
     )]
     pub seed: Option<u64>,
 
-    #[arg(
-        long,
-        help = "Number of seconds this fuzzing session will last",
-        name = "RUN_TIME"
-    )]
-    pub run_time: Option<u64>,
-
-    #[arg(long, help = "Load config file", name = "CONFIG")]
-    pub config: Option<String>,
-
-    #[arg(
-        long,
-        help = "Replay the corpus folder",
-        name = "REPLAY",
-        default_value = "false"
-    )]
-    pub replay: bool,
-    #[arg(
-        long,
-        help = "Minimize Corpora",
-        name = "MINIMIZER",
-        default_value = "false"
-    )]
-    pub minimizer: bool,
-    #[arg(
-        long,
-        help = "Property Testing",
-        name = "PROPTESTING",
-        default_value = "false"
-    )]
-    pub proptesting: bool,
-
     #[arg(long, help = "Iteration Number", name = "ITER", default_value = "-1")]
     pub iter: i64,
 }

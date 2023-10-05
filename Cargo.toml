@@ -13,16 +13,12 @@ thiserror = '1.0.32'
 num-traits = '0.2.15'
 
 [dependencies.felt]
-path = "./lib/cairo-vm/felt/" 
+path = "./lib/cairo-vm/felt/"
 package = 'cairo-felt'
 
 [dependencies.cairo-rs]
-path = "./lib/cairo-vm/vm/" 
+path = "./lib/cairo-vm/vm/"
 package = 'cairo-vm'
-
-[dependencies.starknet-rs]
-path = "./lib/starknet_in_rust"
-package = 'starknet_in_rust'
 
 [dependencies.num-bigint]
 version = '0.4'

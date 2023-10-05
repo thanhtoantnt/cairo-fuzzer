@@ -28,7 +28,6 @@ pub struct Fuzzer {
     pub workspace: String,
     pub input_file: Arc<Mutex<InputFile>>,
     pub crash_file: Arc<Mutex<CrashFile>>,
-    pub run_time: Option<u64>,
     pub start_time: Instant,
     pub running_workers: u64,
     pub iter: i64,
@@ -124,7 +123,6 @@ impl Fuzzer {
         Fuzzer {
             stats,
             cores: config.cores,
-            run_time: config.run_time,
             contract_file: config.contract_file.clone(),
             contract_content: contents,
             program,
@@ -142,7 +140,6 @@ impl Fuzzer {
 
     /// Fuzz
     pub fn fuzz(&mut self) {
-        // Running all the threads
         for i in 0..self.cores {
             let stats = self.stats.clone();
             let function = self.function.clone();
@@ -161,7 +158,6 @@ impl Fuzzer {
                     input_file,
                     crash_file,
                     iter,
-                    //dict,
                 );
                 cairo_worker.fuzz();
             });
@@ -174,17 +170,9 @@ impl Fuzzer {
     /// Function to print stats of the running fuzzer
     fn monitor(&self) {
         loop {
-            // wait 1 second
             std::thread::sleep(Duration::from_millis(1000));
-
-            // Get uptime
             let uptime = (Instant::now() - self.start_time).as_secs_f64();
-
-            // Get access to the global stats
-
             let stats = self.stats.lock().expect("Failed to lock stats mutex");
-
-            // number of executions
             let fuzz_case = stats.fuzz_cases;
             print!(
                 "{:12.2} uptime | {:9} fuzz cases | {:12.2} fcps | \
@@ -197,11 +185,6 @@ impl Fuzzer {
                 stats.crashes,
                 stats.crash_db.len()
             );
-            if let Some(run_time) = self.run_time {
-                if uptime > run_time as f64 {
-                    process::exit(0);
-                }
-            }
         }
     }
 }

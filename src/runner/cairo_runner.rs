@@ -3,7 +3,6 @@ use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
-
 use felt::Felt252;
 
 use super::runner::Runner;

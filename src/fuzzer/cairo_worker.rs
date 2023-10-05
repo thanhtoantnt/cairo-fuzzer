@@ -10,6 +10,7 @@ use felt::Felt252;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 
+// Fuzzing State
 pub struct CairoWorker {
     stats: Arc<Mutex<Statistics>>,
     worker_id: i32,
