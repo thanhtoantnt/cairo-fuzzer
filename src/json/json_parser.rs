@@ -8,7 +8,6 @@ pub struct Function {
     pub type_args: Vec<String>,
     pub hints: bool,
     pub decorators: Vec<String>,
-    pub _starknet: bool,
 }
 
 /// Function that returns a vector of the args type of the function the user want to fuzz
@@ -25,7 +24,6 @@ fn get_type_args(members: &Value) -> Vec<String> {
 
 /// Function to parse cairo json artifact
 pub fn parse_json(data: &String, function_name: &String) -> Option<Function> {
-    let starknet = false;
     let data: Value = serde_json::from_str(&data).expect("JSON was not well-formatted");
     let hints = if let Some(field) = data.get("hints") {
         field.as_object().unwrap().len() != 0
@@ -46,10 +44,9 @@ pub fn parse_json(data: &String, function_name: &String) -> Option<Function> {
                     {
                         return Some(Function {
                             decorators: Vec::new(),
-                            _starknet: starknet,
                             entrypoint: pc,
-                            hints: hints,
-                            name: name,
+                            hints,
+                            name,
                             num_args: size
                                 .as_u64()
                                 .expect("Failed to get number of arguments from json"),
