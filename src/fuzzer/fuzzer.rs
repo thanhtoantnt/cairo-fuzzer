@@ -1,23 +1,20 @@
 use std::{
     fs::{self, File},
     process,
-    str::FromStr,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+use crate::json::json_parser::parse_json;
 use crate::{
-    cli::config::Config,
-    fuzzer::cairo_worker::CairoWorker,
-    fuzzer::dict::Dict,
-    json::json_parser::{parse_json, parse_starknet_json, Function},
+    cli::config::Config, fuzzer::cairo_worker::CairoWorker, fuzzer::dict::Dict,
+    json::json_parser::Function,
 };
 
 use super::{corpus_crash::CrashFile, corpus_input::InputFile, stats::Statistics};
 use cairo_rs::types::program::Program;
 use felt::Felt252;
 use rand::Rng;
-use starknet_rs::services::api::contract_classes::deprecated_contract_class::ContractClass;
 use std::io::Write;
 
 #[derive(Clone)]
@@ -32,8 +29,6 @@ pub struct Fuzzer {
     pub contract_content: String,
     /// Program for cairo-rs
     pub program: Option<Program>,
-    /// Contract_class for starknet-rs
-    pub contract_class: Option<ContractClass>,
     /// Contract function to fuzz
     pub function: Function,
     /// Store local/on-disk logs
@@ -56,8 +51,6 @@ pub struct Fuzzer {
     pub start_time: Instant,
     /// Running workers
     pub running_workers: u64,
-    /// Starknet or cairo contract
-    pub starknet: bool,
     /// Number of iterations to run
     pub iter: i64,
     /// Usage of property testing
@@ -84,17 +77,14 @@ impl Fuzzer {
         let contents = fs::read_to_string(&config.contract_file)
             .expect("Should have been able to read the file");
 
-        // TODO - remove when support multiple txs
         let function = match parse_json(&contents, &config.function_name) {
             Some(func) => func,
-            None => match parse_starknet_json(&contents, &config.function_name) {
-                Some(func) => func,
-                None => {
-                    eprintln!("Error: Could not parse json file");
-                    process::exit(1)
-                }
-            },
+            None => {
+                eprintln!("Error: Could not parse json file");
+                process::exit(1)
+            }
         };
+
         // Load inputs from the input file if provided
         let mut inputs = InputFile::load_from_folder(&config.input_folder, &config.workspace);
         println!("\t\t\t\t\t\t\tInputs loaded {}", inputs.inputs.len());
@@ -107,7 +97,7 @@ impl Fuzzer {
         let nbr_args = function.num_args;
         for val in &dict.inputs {
             let mut value_vec: Vec<Felt252> = Vec::new();
-            value_vec.push(val.clone()); // to ensure that all values of the dict will be in the inputs vector
+            value_vec.push(val.clone());
             for _ in 0..nbr_args - 1 {
                 value_vec
                     .push(dict.inputs[rand::thread_rng().gen_range(0..dict.inputs.len())].clone());
@@ -145,19 +135,10 @@ impl Fuzzer {
             }
         }
 
-        let program = if !function._starknet {
-            Some(
-                Program::from_bytes(&contents.as_bytes(), Some(&function.name))
-                    .expect("Failed to deserialize Program"),
-            )
-        } else {
-            None
-        };
-        let contract_class = if function._starknet {
-            Some(ContractClass::from_str(contents.as_str()).expect("could not get contractclass"))
-        } else {
-            None
-        };
+        let program = Some(
+            Program::from_bytes(&contents.as_bytes(), Some(&function.name))
+                .expect("Failed to deserialize Program"),
+        );
 
         // Setup the mutex for the inputs corpus and crash corpus
         let inputs = Arc::new(Mutex::new(inputs));
@@ -175,7 +156,6 @@ impl Fuzzer {
             contract_content: contents,
             program,
             dict,
-            contract_class,
             function: function.clone(),
             start_time: Instant::now(),
             seed,
@@ -183,7 +163,6 @@ impl Fuzzer {
             crash_file: crashes,
             workspace: config.workspace.clone(),
             running_workers: 0,
-            starknet: function._starknet,
             iter: config.iter,
             proptesting: config.proptesting,
         }
@@ -193,7 +172,6 @@ impl Fuzzer {
     pub fn fuzz(&mut self) {
         // Running all the threads
         for i in 0..self.cores {
-            // create dedicated statistics per thread
             let stats = self.stats.clone();
             let function = self.function.clone();
             let input_file = self.input_file.clone();
@@ -237,47 +215,45 @@ impl Fuzzer {
             let uptime = (Instant::now() - self.start_time).as_secs_f64();
 
             // Get access to the global stats
-            {
-                let stats = self.stats.lock().expect("Failed to lock stats mutex");
 
-                // number of executions
-                let fuzz_case = stats.fuzz_cases;
-                print!(
-                    "{:12.2} uptime | {:9} fuzz cases | {:12.2} fcps | \
+            let stats = self.stats.lock().expect("Failed to lock stats mutex");
+
+            // number of executions
+            let fuzz_case = stats.fuzz_cases;
+            print!(
+                "{:12.2} uptime | {:9} fuzz cases | {:12.2} fcps | \
                             {:6} coverage | {:6} inputs | {:6} crashes [{:6} unique]\n",
+                uptime,
+                fuzz_case,
+                fuzz_case as f64 / uptime,
+                stats.coverage_db.len(),
+                stats.input_len,
+                stats.crashes,
+                stats.crash_db.len()
+            );
+            // Writing inside logging file
+            if let Some(ref mut file) = log {
+                write!(
+                    file,
+                    "{:12.0} {:7} {:8} {:5} {:6} {:6}\n",
                     uptime,
                     fuzz_case,
-                    fuzz_case as f64 / uptime,
                     stats.coverage_db.len(),
                     stats.input_len,
                     stats.crashes,
                     stats.crash_db.len()
-                );
-                // Writing inside logging file
-                if let Some(ref mut file) = log {
-                    write!(
-                        file,
-                        "{:12.0} {:7} {:8} {:5} {:6} {:6}\n",
-                        uptime,
-                        fuzz_case,
-                        stats.coverage_db.len(),
-                        stats.input_len,
-                        stats.crashes,
-                        stats.crash_db.len()
-                    )
-                    .expect("Failed to write logs in log file");
-                    file.flush().expect("Failed to flush the file");
-                }
-
-                // Only for replay: all thread are finished
-                if (self.replay && stats.threads_finished == self.running_workers)
-                    || (self.iter < fuzz_case as i64 && self.iter != -1)
-                {
-                    break;
-                }
+                )
+                .expect("Failed to write logs in log file");
+                file.flush().expect("Failed to flush the file");
             }
 
-            // time over, fuzzing session is finished
+            // Only for replay: all thread are finished
+            if (self.replay && stats.threads_finished == self.running_workers)
+                || (self.iter < fuzz_case as i64 && self.iter != -1)
+            {
+                break;
+            }
+
             if let Some(run_time) = self.run_time {
                 if uptime > run_time as f64 {
                     process::exit(0);
