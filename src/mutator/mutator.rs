@@ -28,37 +28,6 @@ use super::magic_values;
 use alloc::vec::Vec;
 use felt::Felt252;
 use magic_values::MAGIC_VALUES;
-/// An empty database that never returns an input, useful for fuzzers without
-/// corpuses or input databases.
-pub struct EmptyDatabase;
-
-impl InputDatabase for EmptyDatabase {
-    fn num_inputs(&self) -> usize {
-        0
-    }
-    fn input(&self, _idx: usize) -> Option<Felt252> {
-        None
-    }
-}
-
-/// Routines to generically access a corpus/input database for a fuzzer. It's
-/// up to the database to implement this trait, allowing generic access to
-/// the number of inputs in the database, and accessors for a specific input.
-///
-/// The inputs should have zero-indexed IDs such that any input in the range of
-/// [0, self.num_inputs()) should be a valid input.
-///
-/// If the `idx` does not lead to the same input each run, the determinism of
-/// the mutator is unstable and can produce different results across different
-/// runs.
-pub trait InputDatabase {
-    /// Get the number of inputs in the database
-    fn num_inputs(&self) -> usize;
-
-    /// Get an input with a specific zero-index identifier
-    /// If the `idx` is invalid or otherwise not available, this returns `None`
-    fn input(&self, idx: usize) -> Option<Felt252>;
-}
 
 /// A basic random number generator based on xorshift64 with 64-bits of state
 struct Rng {
@@ -229,29 +198,19 @@ impl Mutator {
     }
 
     /// Performs standard mutation of an the input
-    pub fn mutate<T: InputDatabase>(&mut self, mutations: usize, inputs: &T) {
+    pub fn mutate(&mut self, mutations: usize) {
         /// List of mutation strategies which do not require an input database
         const STRATEGIES: &[fn(&mut Mutator)] = &[
-            //Mutator::shrink,
-            //Mutator::expand,
             Mutator::inc_byte,
             Mutator::dec_byte,
             Mutator::neg_byte,
             Mutator::add_sub,
-            //Mutator::set,
             Mutator::swap,
             Mutator::copy,
             Mutator::inter_splice,
-            //Mutator::insert_rand,
             Mutator::overwrite_rand,
-            //Mutator::byte_repeat_overwrite,
-            //Mutator::byte_repeat_insert,
             Mutator::magic_overwrite,
-            //Mutator::magic_insert,
             Mutator::random_overwrite,
-            //Mutator::random_insert,
-            Mutator::splice_overwrite,
-            //Mutator::splice_insert,
         ];
 
         // Save the old state of the exponential random and randomly disable
@@ -268,65 +227,8 @@ impl Mutator {
             // Get the strategy
             let strat = STRATEGIES[sel];
 
-            // Determine if we're doing an overwrite or insert splice strategy,
-            // as we have to handle these a bit specially due to the use of
-            // a generic input database.
-            let splice_overwrite =
-                core::ptr::eq(strat as *const (), Mutator::splice_overwrite as *const ());
-            let splice_insert =
-                core::ptr::eq(strat as *const (), Mutator::splice_insert as *const ());
-
-            // Handle special-case mutations which need input database access
-            if splice_overwrite || splice_insert {
-                // Get the number of inputs in the database
-                let dblen = inputs.num_inputs();
-                if dblen == 0 {
-                    continue;
-                }
-
-                // Select a random input
-                if let Some(inp) = inputs.input(self.rng.rand(0, dblen - 1)) {
-                    // Nothing to splice for an empty input
-                    /*                     if inp.is_empty() {
-                        continue;
-                    } */
-                    println!("Inputs selected => {:?}", inp);
-                    // Pick a random offset and length from the input which
-                    // we want to use for splicing
-                    let donor_offset = self.rng.rand_exp(0, inp.to_string().len() - 1);
-                    let donor_length = self.rng.rand_exp(1, inp.to_string().len() - donor_offset);
-
-                    if splice_overwrite {
-                        // Cannot overwrite an empty input
-                        if self.input.is_empty() {
-                            continue;
-                        }
-
-                        // Find an offset to overwrite in our input
-                        let offset = self.rand_offset();
-                        let length = core::cmp::min(donor_length, self.input.len() - offset);
-
-                        println!("inputs to bytes => {:?}", &inp.to_be_bytes());
-                        println!(
-                            "inputs slices => {:?}",
-                            &inp.to_be_bytes()[donor_offset..donor_offset + length]
-                        );
-                        // Overwrite it!
-                        self.overwrite(
-                            offset,
-                            &inp.to_be_bytes()[donor_offset..donor_offset + length],
-                        );
-                    } else {
-                        // Find an offset to insert at in our input
-                        let offset = self.rand_offset_int(true);
-                        // Insert!
-                        self.insert(offset, inp);
-                    }
-                }
-            } else {
-                // Run the mutation strategy
-                strat(self);
-            }
+            // Run the mutation strategy
+            strat(self);
         }
 
         // Restore exponential random state to the old state

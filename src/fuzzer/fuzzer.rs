@@ -22,7 +22,6 @@ pub struct Fuzzer {
     pub seed: u64,
     pub workspace: String,
     pub input_file: Arc<Mutex<InputFile>>,
-    // pub crash_file: Arc<Mutex<CrashFile>>,
     pub running_workers: u64,
     pub iter: i64,
 }
@@ -68,23 +67,6 @@ impl Fuzzer {
             }
         }
 
-        // let crashes: CrashFile =
-        //     match config.crash_file.is_empty() && config.crash_folder.is_empty() {
-        //         true => CrashFile::new_from_function(&function, &config.workspace),
-        //         false => match config.input_folder.is_empty() {
-        //             true => CrashFile::load_from_file(&config.input_file, &config.workspace),
-        //             false => CrashFile::load_from_folder(&config.input_folder, &config.workspace),
-        //         },
-        //     };
-
-        // if crashes.crashes.len() > 0 {
-        //     let mut stats_db = stats.lock().expect("Failed to lock stats mutex");
-        //     for input in &crashes.crashes {
-        //         stats_db.crash_db.insert(Arc::new(input.clone()));
-        //         stats_db.crashes += 1;
-        //     }
-        // }
-
         let program = Some(
             Program::from_bytes(&contents.as_bytes(), Some(&function.name))
                 .expect("Failed to deserialize Program"),
@@ -92,7 +74,6 @@ impl Fuzzer {
 
         // Setup the mutex for the inputs corpus and crash corpus
         let inputs = Arc::new(Mutex::new(inputs));
-        // let crashes = Arc::new(Mutex::new(crashes));
 
         // Setup the fuzzer
         Fuzzer {
@@ -129,7 +110,6 @@ impl Fuzzer {
                     function,
                     seed,
                     input_file,
-                    // crash_file,
                     iter,
                 );
                 cairo_worker.fuzz();

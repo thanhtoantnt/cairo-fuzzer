@@ -2,7 +2,7 @@ use super::corpus_input::InputFile;
 use super::stats::*;
 use crate::custom_rand::rng::Rng;
 use crate::json::json_parser::Function;
-use crate::mutator::mutator::{EmptyDatabase, Mutator};
+use crate::mutator::mutator::Mutator;
 use crate::runner::cairo_runner;
 use crate::runner::runner::Runner;
 use cairo_rs::types::program::Program;
@@ -75,7 +75,7 @@ impl CairoWorker {
 
             // Corrupt it with 4 mutation passes
             //if self.dict.inputs.is_empty() {
-            mutator.mutate(4, &EmptyDatabase);
+            mutator.mutate(4);
 
             // not the good size, drop this input
             if mutator.input.len() != self.function.num_args as usize {
